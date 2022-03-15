@@ -16,7 +16,6 @@ export default class NewsController {
 
   @Post('all')
   async findAll(@Body() param: { pageIndex: number; pageSize: number }) {
-    console.log(param);
     return this.newsService.findAll(param);
   }
 }

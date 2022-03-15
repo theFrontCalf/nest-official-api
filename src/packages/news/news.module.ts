@@ -1,3 +1,4 @@
+import { AuthMiddleware } from 'src/commen/middleware/auth';
 import {
   MiddlewareConsumer,
   Module,
@@ -8,15 +9,17 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import NewsEntity from './news.entity';
 import NewsController from './news.controller';
 import NewsService from './news.service';
+import UsersEntity from '../users/users.entity';
+import UsersModule from '../users/users.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([NewsEntity])],
+  imports: [TypeOrmModule.forFeature([NewsEntity, UsersEntity]), UsersModule],
   providers: [NewsService],
   controllers: [NewsController],
 })
 export default class NewsModule implements NestModule {
   public configure(consumer: MiddlewareConsumer) {
-    consumer.apply().forRoutes({
+    consumer.apply(AuthMiddleware).forRoutes({
       path: 'news/all',
       method: RequestMethod.POST,
     });
