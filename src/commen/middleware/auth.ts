@@ -4,7 +4,8 @@ import { HttpStatus, Injectable, NestMiddleware } from '@nestjs/common';
 import { HttpException } from '@nestjs/common/exceptions/http.exception';
 import { ConfigService } from '@nestjs/config';
 import { NextFunction, Request, Response } from 'express';
-import * as jwt from 'jsonwebtoken';
+import { verify } from 'jsonwebtoken';
+import { aesDecrypt } from 'src/utils';
 
 declare global {
   namespace Express {
@@ -17,7 +18,7 @@ declare global {
 export class AuthMiddleware implements NestMiddleware {
   constructor(
     private readonly usersService: UsersService,
-    private configService: ConfigService,
+    private cfgs: ConfigService,
   ) {}
 
   async use(req: Request, res: Response, next: NextFunction) {
@@ -25,25 +26,23 @@ export class AuthMiddleware implements NestMiddleware {
     if (!authHeaders) {
       throw new HttpException('Not authorized.', HttpStatus.UNAUTHORIZED);
     }
-    let token = '';
-    const matches = (authHeaders as string).split(' ');
-    if (matches && matches[0] === 'Bearer') {
-      token = matches[1];
-    }
-    if (token) {
-      try {
-        const SECRET = this.configService.get<string>('SECURITY_JWT_SECRET');
-        const decoded: Record<string, any> = jwt.verify(token, SECRET);
-        const user = await this.usersService.findById(decoded.id);
-        if (!user) {
-          throw new HttpException('User not found.', HttpStatus.UNAUTHORIZED);
-        }
-        req.$current = user;
-        next();
-      } catch (e) {
-        throw new HttpException('Not authorized.', HttpStatus.UNAUTHORIZED);
+    try {
+      const SECRET = this.cfgs.get<string>('SECURITY_JWT_SECRET');
+      const PREFIX = this.cfgs.get<string>('SECURITY_CRYPTO_SECRET_PREFIX');
+      const decrypted = aesDecrypt(authHeaders, PREFIX + SECRET);
+      let jwtToken = '';
+      const matches = (decrypted as string).split(' ');
+      if (matches && matches[0] === PREFIX.trim()) {
+        jwtToken = matches[1];
       }
-    } else {
+      const decoded: Record<string, any> = verify(jwtToken, SECRET);
+      const user = await this.usersService.findById(decoded.id);
+      if (!user) {
+        throw new HttpException('User not found.', HttpStatus.UNAUTHORIZED);
+      }
+      req.$current = user;
+      next();
+    } catch (e) {
       throw new HttpException('Not authorized.', HttpStatus.UNAUTHORIZED);
     }
   }

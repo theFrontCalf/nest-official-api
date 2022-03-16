@@ -1,5 +1,5 @@
 // import { IsEmail } from 'class-validator';
-import * as crypto from 'crypto';
+import { hmacSha256 } from 'src/utils';
 import {
   BeforeInsert,
   BeforeUpdate,
@@ -17,7 +17,7 @@ export default class UsersEntity {
   @Column()
   userName: string;
 
-  @Column()
+  @Column({ default: '' })
   // @IsEmail()
   email: string;
 
@@ -28,8 +28,10 @@ export default class UsersEntity {
   password: string;
 
   @BeforeInsert()
+  @BeforeUpdate()
   hashPassword() {
-    this.password = crypto.createHmac('sha256', this.password).digest('hex');
+    console.log(this.password);
+    this.password = hmacSha256(this.password);
   }
 
   @Column({
